@@ -1,4 +1,4 @@
-const file = "monkey.glb";
+const file = __dirname + "/monkey.glb";
 
 const fs = require("fs");
 

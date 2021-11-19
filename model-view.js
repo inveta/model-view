@@ -1,4 +1,4 @@
-2021 / 11 / 18;
+2021 / 11 / 19;
 
 const vs = `
   attribute vec4 a_position;
@@ -55,19 +55,18 @@ class ModelView extends HTMLCanvasElement {
   async connectedCallback() {
     if (!this.isConnected) return;
 
-    // 加载动画
-    const background = [
-      "center / 200% 1cm",
-      "no-repeat",
-      "repeating-linear-gradient(135deg,white 0,white 2mm,black 2mm,black 4mm)",
-    ].join(" ");
+    // 加载动画: 30°时，斜边是短边的2倍
+    const w = 3;
+    const background =
+      `center / ${w * 4}mm 1cm repeat no-repeat ` +
+      `repeating-linear-gradient(-30deg, white 0, white ${w}mm, black ${w}mm, black ${w * 2}mm)`;
     const animation = this.animate(
       [
-        { backgroundPositionX: "100%", background },
         { backgroundPositionX: "0", background },
+        { backgroundPositionX: w * 4 + "mm", background },
       ],
       {
-        duration: 5000,
+        duration: 500,
         iterations: Infinity,
       }
     );
@@ -79,15 +78,17 @@ class ModelView extends HTMLCanvasElement {
     let buffer = await fetch(src).then((x) => x.arrayBuffer());
 
     const json_length = new Uint32Array(buffer.slice(0, 4))[0];
-    const model = JSON.parse(new TextDecoder().decode(buffer.slice(4, 4 + json_length)));
+    const { position_length, extensions, groups, MAX, MIN } = JSON.parse(
+      new TextDecoder().decode(buffer.slice(4, 4 + json_length))
+    );
     buffer = buffer.slice(4 + json_length);
-    const position = buffer.slice(0, model.position_length);
-    const indices = buffer.slice(model.position_length);
+    const position = buffer.slice(0, position_length);
+    const indices = buffer.slice(position_length);
 
     console.log("✅", src);
     ctx.enable(ctx.DEPTH_TEST);
     ctx.enable(ctx.CULL_FACE);
-    model.extensions.forEach((e) => ctx.getExtension(e));
+    extensions.forEach((e) => ctx.getExtension(e));
 
     const pgm = ctx.createProgram();
     this.pgm = pgm;
@@ -104,10 +105,10 @@ class ModelView extends HTMLCanvasElement {
     ctx.linkProgram(pgm);
     ctx.useProgram(pgm);
 
-    this.groups = model.groups;
+    this.groups = groups;
 
     // 计算包围盒
-    const range = model.MAX.map((a, i) => a - model.MIN[i]);
+    const range = MAX.map((a, i) => a - MIN[i]);
 
     // 物体原点 -> 包围盒中心
     // const objOffset = range.map((a, i) => -a / 2 - min[i]);
@@ -150,7 +151,7 @@ class ModelView extends HTMLCanvasElement {
   }
 
   disconnectedCallback() {
-    cancelAnimationFrame(this.frame);
+    // cancelAnimationFrame(this.frame);
   }
 
   static observedAttributes = ["src"];
