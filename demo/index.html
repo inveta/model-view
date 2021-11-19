@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html {
+        background-color: black;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script src="model-view.min.js"></script>
+
+    <!-- <canvas is="model-view" src="500.bin" width="800" height="800"></canvas> -->
+
+    <canvas is="model-view" src="monkey.bin" width="800" height="800"></canvas>
+
+    <script>
+      document
+        .querySelectorAll("canvas")
+        .forEach((canvas) => (canvas.onclick = canvas.requestPointerLock));
+    </script>
+  </body>
+</html>
