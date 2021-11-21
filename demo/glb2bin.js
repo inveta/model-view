@@ -25,7 +25,7 @@ groups[-1] = {
 let MIN = Array(3).fill(Infinity);
 let MAX = Array(3).fill(-Infinity);
 
-const extensions = new Set(["OES_standard_derivatives"]);
+const extensions = new Set([]);
 
 meshes[0].primitives.forEach((primitive, i) => {
   let color = [1, 1, 1];
@@ -63,10 +63,12 @@ groups.forEach((color) => {
   delete color.totalVertexCount;
 });
 
+// 包围球直径 / 包围盒对角线
+let length = Math.hypot(...MAX.map((a, i) => a - MIN[i]));
+
 const json = JSON.stringify({
   groups,
-  MIN,
-  MAX,
+  length,
   position_length: position.reduce((a, b) => a + b.byteLength, 0),
   extensions: [...extensions],
 });

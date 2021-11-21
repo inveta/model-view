@@ -34,13 +34,13 @@
 
 ## JSON 格式
 
-| JSON 格式               | 类型        | 作用                 |
-| ----------------------- | ----------- | -------------------- |
-| position_length         | 整数        | 顶点数组的长度，字节 |
-| MIN、MAX                | vector3     | AABB 包围盒的端点    |
-| extensions              | string 列表 | WebGL 的扩展功能     |
-| groups                  | 字典列表    | 三角面的分组         |
-| groups -> color         | vector4     | 分组的颜色           |
-| groups -> indexCount    | 整数        | 分组的长度           |
-| groups -> componentType | WebGL 类型  | 索引的类型           |
-| groups -> offset        | 整数        | 分组的偏移值，字节   |
+| JSON 字典               | 类型        | 作用                       |
+| ----------------------- | ----------- | -------------------------- |
+| position_length         | 整数        | 顶点数组的长度，字节       |
+| length                  | float       | 包围球直径 or 包围盒对角线 |
+| extensions              | string 列表 | WebGL 的扩展功能           |
+| groups                  | 字典列表    | 三角面的分组               |
+| groups -> color         | vector4     | 分组的颜色                 |
+| groups -> indexCount    | 整数        | 分组的长度                 |
+| groups -> componentType | WebGL 类型  | 索引的类型                 |
+| groups -> offset        | 整数        | 分组的偏移值，字节         |

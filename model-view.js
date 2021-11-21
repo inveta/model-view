@@ -1,13 +1,13 @@
-2021 / 11 / 19;
+2021 / 11 / 20;
 
 const vs = `
-  attribute vec4 a_position;
-  uniform mat4 u_projection;
-  uniform mat4 u_world;
-  varying vec3 v_position;
+  attribute vec4 position;
+  uniform mat4 perspect;
+  uniform mat4 orbit;
+  varying vec3 location;
   void main() {
-    gl_Position = u_projection * u_world * a_position;
-    v_position = gl_Position.xyz;
+    gl_Position = perspect * orbit * position;
+    location = gl_Position.xyz;
   }
 `;
 
@@ -16,12 +16,12 @@ const vs = `
 const fs = `
   #extension GL_OES_standard_derivatives : enable
   precision mediump float;
-  varying vec3 v_position;
-  uniform vec3 u_color;
+  varying vec3 location;
+  uniform vec3 color;
   void main () {
-    vec3 normal = normalize(cross(dFdx(v_position), dFdy(v_position)));
-    float light = normal.z * .5 + .5;
-    gl_FragColor = vec4(u_color * light, 1);
+    vec3 normal = cross(dFdx(location), dFdy(location));
+    float light = normal.z / length(normal);
+    gl_FragColor = vec4(color * light, 1);
   }
 `;
 
@@ -78,16 +78,18 @@ class ModelView extends HTMLCanvasElement {
     let buffer = await fetch(src).then((x) => x.arrayBuffer());
 
     const json_length = new Uint32Array(buffer.slice(0, 4))[0];
-    const { position_length, extensions, groups, MAX, MIN } = JSON.parse(
+    const { position_length, extensions, groups, length } = JSON.parse(
       new TextDecoder().decode(buffer.slice(4, 4 + json_length))
     );
     buffer = buffer.slice(4 + json_length);
-    const position = buffer.slice(0, position_length);
-    const indices = buffer.slice(position_length);
+    const POSITION = buffer.slice(0, position_length);
+    const TRIANGLE = buffer.slice(position_length);
 
     console.log("✅", src);
     ctx.enable(ctx.DEPTH_TEST);
     ctx.enable(ctx.CULL_FACE);
+    // flat shading
+    ctx.getExtension("OES_standard_derivatives");
     extensions.forEach((e) => ctx.getExtension(e));
 
     const pgm = ctx.createProgram();
@@ -105,46 +107,38 @@ class ModelView extends HTMLCanvasElement {
     ctx.linkProgram(pgm);
     ctx.useProgram(pgm);
 
+    // 包围球直径
+    this.length = length;
     this.groups = groups;
 
-    // 计算包围盒
-    const range = MAX.map((a, i) => a - MIN[i]);
-
-    // 物体原点 -> 包围盒中心
-    // const objOffset = range.map((a, i) => -a / 2 - min[i]);
-    // u_world = m4.translate(u_world, ...objOffset);
-
-    // 包围球直径
-    this.diameter = Math.hypot(...range);
-
-    const near = this.diameter / 100;
-    const far = this.diameter * 3;
+    const near = length / 100;
+    const far = length * 3;
 
     ctx.viewport(0, 0, width, height);
 
     const aspect = width / height;
     // 视点到物体距离 = 物体长度，所以FoV约等于1
     const yFoV = Math.PI / 3;
-    const f = Math.tan(Math.PI / 2 - yFoV / 2);
+    const tangent = Math.tan(Math.PI / 2 - yFoV / 2);
 
-    const u_projection = [
-      [f / aspect, 0, 0, 0],
-      [0, f, 0, 0],
+    const perspect = [
+      [tangent / aspect, 0, 0, 0],
+      [0, tangent, 0, 0],
       [0, 0, (near + far) / (near - far), -1],
       [0, 0, (near * far * 2) / (near - far), 0],
     ].flat();
 
-    ctx.uniformMatrix4fv(ctx.getUniformLocation(pgm, "u_projection"), false, u_projection);
+    ctx.uniformMatrix4fv(ctx.getUniformLocation(pgm, "perspect"), false, perspect);
 
     ctx.bindBuffer(ctx.ARRAY_BUFFER, ctx.createBuffer());
-    const a_position = ctx.getAttribLocation(pgm, "a_position");
-    ctx.enableVertexAttribArray(a_position);
+    const position = ctx.getAttribLocation(pgm, "position");
+    ctx.enableVertexAttribArray(position);
 
-    ctx.vertexAttribPointer(a_position, 3, ctx.FLOAT, false, 0, 0);
-    ctx.bufferData(ctx.ARRAY_BUFFER, position, ctx.STATIC_DRAW);
+    ctx.vertexAttribPointer(position, 3, ctx.FLOAT, false, 0, 0);
+    ctx.bufferData(ctx.ARRAY_BUFFER, POSITION, ctx.STATIC_DRAW);
 
     ctx.bindBuffer(ctx.ELEMENT_ARRAY_BUFFER, ctx.createBuffer());
-    ctx.bufferData(ctx.ELEMENT_ARRAY_BUFFER, indices, ctx.STATIC_DRAW);
+    ctx.bufferData(ctx.ELEMENT_ARRAY_BUFFER, TRIANGLE, ctx.STATIC_DRAW);
 
     this.render();
     animation.cancel();
@@ -160,26 +154,26 @@ class ModelView extends HTMLCanvasElement {
   }
 
   render = () => {
-    const { ctx, pgm, angleX, angleY, diameter, zoom, groups } = this;
+    const { ctx, pgm, angleX, angleY, length, zoom, groups } = this;
     const CosX = Math.cos(angleX);
     const SinX = Math.sin(angleX);
     const CosY = Math.cos(angleY);
     const SinY = Math.sin(angleY);
 
     // 物距
-    const distance = -diameter * zoom;
+    const distance = -length * zoom;
     // 列主序：先绕X，再绕Y
-    const u_world = [
+    const orbit = [
       [CosX, SinY * SinX, -SinX * CosY, 0],
       [0, CosY, SinY, 0],
       [SinX, -SinY * CosX, CosX * CosY, 0],
       [0, 0, distance, 1],
     ].flat();
 
-    ctx.uniformMatrix4fv(ctx.getUniformLocation(pgm, "u_world"), false, u_world);
+    ctx.uniformMatrix4fv(ctx.getUniformLocation(pgm, "orbit"), false, orbit);
 
     groups.forEach((group) => {
-      ctx.uniform3fv(ctx.getUniformLocation(pgm, "u_color"), group.color);
+      ctx.uniform3fv(ctx.getUniformLocation(pgm, "color"), group.color);
       ctx.drawElements(ctx.TRIANGLES, group.indexCount, group.componentType, group.offset);
     });
 
